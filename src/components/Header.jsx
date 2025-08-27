@@ -1,103 +1,111 @@
 import { useState } from 'react';
 import { Button } from './ui/Button';
-import { Input } from './ui/Input';
-import { MessageCircle, User, Settings, LogOut } from 'lucide-react';
+import { UserMenuModal } from './UserMenuModal';
+import { MessageCircle, User, Settings, Activity, Wifi, Menu } from 'lucide-react';
 
-export const Header = ({ currentUser, onUserChange }) => {
+export const Header = ({ user, onLogout, connected = true }) => {
   const [showUserModal, setShowUserModal] = useState(false);
-  const [username, setUsername] = useState(currentUser);
-
-  const handleUserSubmit = (e) => {
-    e.preventDefault();
-    if (username.trim()) {
-      onUserChange(username.trim());
-      setShowUserModal(false);
-    }
-  };
 
   return (
     <>
-      <header className="glass-effect rounded-xl mx-4 mt-4 mb-6">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-3">
-            <MessageCircle className="text-primary-400" size={32} />
-            <h1 className="text-2xl font-bold gradient-text">GenZ Messenger</h1>
-          </div>
+      <header className="cyber-glass mx-4 sm:mx-6 mt-4 sm:mt-6 mb-4 sm:mb-6 hologram relative">
+        <div className="scan-line"></div>
+        <div className="flex items-center justify-between p-4 sm:p-6 relative z-10">
           
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:flex items-center space-x-2 text-white/80">
-              <User size={16} />
-              <span>Welcome,</span>
-              <span className="font-semibold text-white">{currentUser}</span>
+          {/* Left Section - Logo */}
+          <div className="flex items-center space-x-3 sm:space-x-4 flex-shrink-0">
+            <div className="relative">
+              <MessageCircle className="text-neon-blue w-8 h-8 sm:w-10 sm:h-10 animate-glow-pulse" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-neon-green rounded-full animate-pulse"></div>
             </div>
             
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-cyber font-bold gradient-cyber tracking-wider truncate">
+                GENZ_MESSENGER
+              </h1>
+              <div className="flex items-center space-x-2 mt-1">
+                <Activity className="text-neon-green w-2 h-2 sm:w-3 sm:h-3" />
+                <span className="text-xs font-mono text-neon-green hidden sm:inline">v2.077 ACTIVE</span>
+                <span className="text-xs font-mono text-neon-green sm:hidden">ACTIVE</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Right Section - Desktop */}
+          <div className="hidden lg:flex items-center space-x-6">
+            {/* Connection Status */}
+            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full border ${
+              connected 
+                ? 'bg-neon-green/10 border-neon-green/30' 
+                : 'bg-neon-red/10 border-neon-red/30'
+            }`}>
+              <Wifi className={`w-4 h-4 ${connected ? 'text-neon-green' : 'text-neon-red'}`} />
+              <span className={`text-xs font-cyber font-bold ${
+                connected ? 'text-neon-green' : 'text-neon-red'
+              }`}>
+                {connected ? 'ONLINE' : 'OFFLINE'}
+              </span>
+            </div>
+            
+            {/* User Info */}
+            <div className="flex items-center space-x-3 cyber-glass px-4 py-2 rounded-lg">
+              <User className="text-neon-blue w-5 h-5" />
+              <div>
+                <div className="text-xs font-cyber text-neon-blue/60 uppercase">USER_ID</div>
+                <div className="font-cyber font-bold text-neon-blue">{user.username}</div>
+              </div>
+            </div>
+            
+            {/* Settings Button */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowUserModal(true)}
-              className="flex items-center space-x-2"
+              className="p-3 group"
+              title="Open System Control Panel"
             >
-              <Settings size={18} />
-              <span className="hidden sm:inline">Settings</span>
+              <Settings className="w-5 h-5 group-hover:animate-spin transition-transform duration-300" />
+            </Button>
+          </div>
+
+          {/* Right Section - Mobile/Tablet */}
+          <div className="flex lg:hidden items-center space-x-3">
+            {/* Connection Status - Compact */}
+            <div className={`flex items-center space-x-1 px-2 py-1 rounded-full border ${
+              connected 
+                ? 'bg-neon-green/10 border-neon-green/30' 
+                : 'bg-neon-red/10 border-neon-red/30'
+            }`}>
+              <Wifi className={`w-3 h-3 ${connected ? 'text-neon-green' : 'text-neon-red'}`} />
+              <span className={`text-xs font-cyber font-bold hidden sm:inline ${
+                connected ? 'text-neon-green' : 'text-neon-red'
+              }`}>
+                {connected ? 'ON' : 'OFF'}
+              </span>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowUserModal(true)}
+              className="p-2 sm:p-3 group"
+              title="Open System Control Panel"
+            >
+              <Menu className="w-5 h-5 group-hover:animate-pulse" />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* User Settings Modal */}
-      {showUserModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="glass-effect rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">User Settings</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowUserModal(false)}
-              >
-                ✕
-              </Button>
-            </div>
-            
-            <form onSubmit={handleUserSubmit} className="space-y-4">
-              <Input
-                label="Your Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username..."
-                maxLength={50}
-              />
-              
-              <div className="flex space-x-3">
-                <Button type="submit" className="flex-1">
-                  Save Changes
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setShowUserModal(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-            
-            <div className="mt-6 pt-4 border-t border-white/20">
-              <Button
-                variant="accent"
-                className="w-full flex items-center justify-center space-x-2"
-                onClick={() => {
-                  onUserChange('You');
-                  setShowUserModal(false);
-                }}
-              >
-                <LogOut size={16} />
-                <span>Reset User</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* User Menu Modal */}
+      <UserMenuModal
+        isOpen={showUserModal}
+        onClose={() => setShowUserModal(false)}
+        user={user}
+        onLogout={onLogout}
+        connected={connected}
+      />
     </>
   );
 };

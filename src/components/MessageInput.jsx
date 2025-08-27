@@ -1,54 +1,117 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { Send, Wifi, WifiOff } from 'lucide-react';
+import { Send, Wifi, WifiOff, Zap } from 'lucide-react';
 
 export const MessageInput = ({ onSendMessage, disabled, connected }) => {
   const [message, setMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const inputRef = useRef(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (message.trim() && !disabled) {
-      onSendMessage(message.trim());
-      setMessage('');
+    if (message.trim() && !disabled && connected) {
+      setIsSending(true);
+      try {
+        await onSendMessage(message.trim());
+        setMessage('');
+        
+        // Focus back to input for rapid messaging
+        setTimeout(() => inputRef.current?.focus(), 100);
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      } finally {
+        setIsSending(false);
+      }
     }
   };
 
+  // Auto-focus on mount and when connected
+  useEffect(() => {
+    if (connected && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [connected]);
+
   return (
-    <form onSubmit={handleSubmit} className="p-4 glass-effect rounded-xl">
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center">
-          {connected ? (
-            <Wifi className="text-green-400" size={20} />
-          ) : (
-            <WifiOff className="text-red-400" size={20} />
+    <div className="p-6 cyber-glass border-t border-neon-blue/20">
+      {/* Connection Status */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${
+            connected 
+              ? 'bg-neon-green/20 border border-neon-green/30' 
+              : 'bg-neon-red/20 border border-neon-red/30'
+          }`}>
+            {connected ? (
+              <Wifi className="text-neon-green w-4 h-4" />
+            ) : (
+              <WifiOff className="text-neon-red w-4 h-4" />
+            )}
+            <span className={`text-xs font-cyber font-bold uppercase tracking-wider ${
+              connected ? 'text-neon-green' : 'text-neon-red'
+            }`}>
+              {connected ? 'NEURAL LINK ACTIVE' : 'CONNECTION LOST'}
+            </span>
+          </div>
+          
+          {connected && (
+            <div className="flex items-center space-x-1">
+              <div className="w-1 h-1 bg-neon-green rounded-full animate-pulse"></div>
+              <div className="w-1 h-1 bg-neon-green rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-1 h-1 bg-neon-green rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+            </div>
           )}
         </div>
         
-        <Input
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder={connected ? "Type your message..." : "Connecting..."}
-          disabled={disabled || !connected}
-          className="flex-1"
-        />
-        
-        <Button
-          type="submit"
-          disabled={!message.trim() || disabled || !connected}
-          className="px-4"
-          title={!connected ? "Waiting for connection..." : "Send message"}
-        >
-          <Send size={20} />
-        </Button>
-      </div>
-      
-      {!connected && (
-        <div className="mt-2 text-xs text-yellow-400 flex items-center">
-          <div className="animate-pulse">🔄</div>
-          <span className="ml-2">Connecting to server...</span>
+        <div className="text-xs font-mono text-neon-blue/60">
+          {message.length}/500
         </div>
-      )}
-    </form>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex items-end space-x-4">
+          <div className="flex-1">
+            <Input
+              ref={inputRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value.slice(0, 500))}
+              placeholder={connected ? "TRANSMIT MESSAGE..." : "AWAITING CONNECTION..."}
+              disabled={disabled || !connected}
+              className="cyber-input text-lg py-4"
+              icon={<Zap size={20} />}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+            />
+          </div>
+          
+          <Button
+            type="submit"
+            disabled={!message.trim() || disabled || !connected || isSending}
+            loading={isSending}
+            className="px-6 py-4 h-14"
+            title={!connected ? "Waiting for connection..." : "Send message (Enter)"}
+          >
+            <Send size={20} />
+          </Button>
+        </div>
+        
+        {/* Quick actions */}
+        <div className="flex items-center justify-between text-xs font-mono text-neon-blue/60">
+          <div className="flex items-center space-x-4">
+            <span>ENTER → SEND</span>
+            <span>SHIFT+ENTER → NEW LINE</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span>ENCRYPTION:</span>
+            <span className="text-neon-green">QUANTUM_SECURED</span>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 };

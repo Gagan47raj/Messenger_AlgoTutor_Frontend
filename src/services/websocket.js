@@ -1,11 +1,19 @@
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
+import { getAuthToken } from './api';
 
 let stompClient = null;
 let isConnecting = false;
 
 export const connectWebSocket = (onConnect, onError) => {
   try {
+
+    const token = getAuthToken();
+    if (!token) {
+      onError?.('No authentication token');
+      return null;
+    }
+
     if (stompClient && isConnected()) {
       console.log('WebSocket already connected');
       onConnect?.();
@@ -22,8 +30,13 @@ export const connectWebSocket = (onConnect, onError) => {
     stompClient = Stomp.over(socket);
     
     stompClient.reconnect_delay = 5000;
+
+    // Add authentication header
+    const headers = {
+      'Authorization': `Bearer ${token}`
+    };
     
-    stompClient.connect({}, () => {
+    stompClient.connect(headers, () => {
       console.log('WebSocket connected');
       isConnecting = false;
       onConnect?.();
