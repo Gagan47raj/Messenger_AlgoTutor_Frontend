@@ -1,3 +1,4 @@
+// hooks/useWebSocket.js - REVERT TO ORIGINAL
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { 
   connectWebSocket, 

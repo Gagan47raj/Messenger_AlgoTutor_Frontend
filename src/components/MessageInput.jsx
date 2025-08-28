@@ -1,11 +1,20 @@
+// components/MessageInput.jsx
 import { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { Send, Wifi, WifiOff, Zap } from 'lucide-react';
+import { MediaUpload } from './MediaUpload';
+import { Send, Wifi, WifiOff, Zap, Upload, Image } from 'lucide-react';
 
-export const MessageInput = ({ onSendMessage, disabled, connected }) => {
+export const MessageInput = ({ 
+  onSendMessage, 
+  onMediaUpload, 
+  disabled, 
+  connected, 
+  isPrivateChat = false 
+}) => {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
   const inputRef = useRef(null);
 
   const handleSubmit = async (e) => {
@@ -15,8 +24,6 @@ export const MessageInput = ({ onSendMessage, disabled, connected }) => {
       try {
         await onSendMessage(message.trim());
         setMessage('');
-        
-        // Focus back to input for rapid messaging
         setTimeout(() => inputRef.current?.focus(), 100);
       } catch (error) {
         console.error('Failed to send message:', error);
@@ -26,7 +33,18 @@ export const MessageInput = ({ onSendMessage, disabled, connected }) => {
     }
   };
 
-  // Auto-focus on mount and when connected
+  const handleMediaUploadComplete = async (file, caption, messageType) => {
+    setIsSending(true);
+    try {
+      await onMediaUpload(file, caption, messageType);
+      setShowMediaUpload(false);
+    } catch (error) {
+      console.error('Failed to upload media:', error);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   useEffect(() => {
     if (connected && inputRef.current) {
       inputRef.current.focus();
@@ -51,7 +69,10 @@ export const MessageInput = ({ onSendMessage, disabled, connected }) => {
             <span className={`text-xs font-cyber font-bold uppercase tracking-wider ${
               connected ? 'text-neon-green' : 'text-neon-red'
             }`}>
-              {connected ? 'NEURAL LINK ACTIVE' : 'CONNECTION LOST'}
+              {connected 
+                ? (isPrivateChat ? 'P2P_LINK_ACTIVE' : 'NEURAL_LINK_ACTIVE') 
+                : 'CONNECTION_LOST'
+              }
             </span>
           </div>
           
@@ -69,6 +90,16 @@ export const MessageInput = ({ onSendMessage, disabled, connected }) => {
         </div>
       </div>
 
+      {/* Media Upload Section */}
+      {showMediaUpload && (
+        <div className="mb-4">
+          <MediaUpload
+            onUpload={handleMediaUploadComplete}
+            loading={isSending}
+          />
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex items-end space-x-4">
           <div className="flex-1">
@@ -76,7 +107,7 @@ export const MessageInput = ({ onSendMessage, disabled, connected }) => {
               ref={inputRef}
               value={message}
               onChange={(e) => setMessage(e.target.value.slice(0, 500))}
-              placeholder={connected ? "TRANSMIT MESSAGE..." : "AWAITING CONNECTION..."}
+              placeholder={connected ? "TRANSMIT_MESSAGE..." : "AWAITING_CONNECTION..."}
               disabled={disabled || !connected}
               className="cyber-input text-lg py-4"
               icon={<Zap size={20} />}
@@ -89,6 +120,19 @@ export const MessageInput = ({ onSendMessage, disabled, connected }) => {
             />
           </div>
           
+          {/* Media Upload Button */}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowMediaUpload(!showMediaUpload)}
+            className="px-4 py-4 h-14"
+            disabled={!connected}
+            title="Upload media"
+          >
+            {showMediaUpload ? <Image size={20} /> : <Upload size={20} />}
+          </Button>
+          
+          {/* Send Button */}
           <Button
             type="submit"
             disabled={!message.trim() || disabled || !connected || isSending}
@@ -104,11 +148,13 @@ export const MessageInput = ({ onSendMessage, disabled, connected }) => {
         <div className="flex items-center justify-between text-xs font-mono text-neon-blue/60">
           <div className="flex items-center space-x-4">
             <span>ENTER → SEND</span>
-            <span>SHIFT+ENTER → NEW LINE</span>
+            <span>SHIFT+ENTER → NEW_LINE</span>
           </div>
           <div className="flex items-center space-x-2">
             <span>ENCRYPTION:</span>
-            <span className="text-neon-green">QUANTUM_SECURED</span>
+            <span className={isPrivateChat ? "text-neon-pink" : "text-neon-green"}>
+              {isPrivateChat ? "P2P_SECURED" : "QUANTUM_SECURED"}
+            </span>
           </div>
         </div>
       </form>

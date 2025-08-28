@@ -4,14 +4,18 @@ import { MessageList } from "./components/MessageList";
 import { MessageInput } from "./components/MessageInput";
 import { Header } from "./components/Header";
 import { CreateRoomModal } from "./components/CreateRoomModal";
+import { CreatePrivateChatModal } from "./components/CreatePrivateChatModal";
+import { PrivateChatList } from "./components/PrivateChatList";
 import { LandingPage } from "./components/LandingPage";
 import { AuthModal } from "./components/AuthModal";
 import { useApi } from "./hooks/useApi";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { usePrivateChat } from "./hooks/usePrivateChat";
 import { useAuth } from "./contexts/AuthContext";
 import { api } from "./services/api";
 
 function App() {
+  // Existing state
   const [rooms, setRooms] = useState([]);
   const [currentRoom, setCurrentRoom] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -21,89 +25,175 @@ function App() {
   const [showChat, setShowChat] = useState(false);
   const [showMates, setShowMates] = useState(false);
 
+  // New private chat state
+  const [privateChats, setPrivateChats] = useState([]);
+  const [currentPrivateChat, setCurrentPrivateChat] = useState(null);
+  const [privateMessages, setPrivateMessages] = useState([]);
+  const [showCreatePrivateChat, setShowCreatePrivateChat] = useState(false);
+
   const { callApi, loading, error, setError } = useApi();
   const { user, login, register, logout, isAuthenticated } = useAuth();
 
-  // Create a ref to store the latest message handler
+  // Message handlers
   const messageHandlerRef = useRef();
+  const privateMessageHandlerRef = useRef();
 
-  // Update the ref when handleNewMessage changes
   const handleNewMessage = useCallback((message) => {
     setMessages((prev) => [...prev, message]);
   }, []);
 
+  const handleNewPrivateMessage = useCallback((message) => {
+    console.log('New private message received in App:', message);
+    setPrivateMessages((prev) => [...prev, message]);
+  }, []);
+
   useEffect(() => {
     messageHandlerRef.current = handleNewMessage;
-  }, [handleNewMessage]);
+    privateMessageHandlerRef.current = handleNewPrivateMessage;
+  }, [handleNewMessage, handleNewPrivateMessage]);
 
-  // Use WebSocket with the ref function
+  // WebSocket connections
   const { sendMessage: sendWsMessage, connected } = useWebSocket(
     currentRoom?.roomId,
     (message) => messageHandlerRef.current?.(message)
   );
 
+  const { sendMessage: sendPrivateWsMessage, connected: privateConnected } = usePrivateChat(
+    currentPrivateChat?.chatId,
+    handleNewPrivateMessage
+  );
+
+  // Load functions
   const loadRooms = useCallback(async () => {
     if (!isAuthenticated) return;
-
     await callApi(() => api.getRooms(), setRooms);
   }, [callApi, isAuthenticated]);
 
-  const loadMessages = useCallback(
-    async (roomId) => {
-      if (!isAuthenticated) return;
+  const loadPrivateChats = useCallback(async () => {
+    if (!isAuthenticated) return;
+    await callApi(() => api.getPrivateChats(), setPrivateChats);
+  }, [callApi, isAuthenticated]);
 
-      await callApi(() => api.getMessages(roomId), setMessages);
-    },
-    [callApi, isAuthenticated]
-  );
+  const loadMessages = useCallback(async (roomId) => {
+    if (!isAuthenticated) return;
+    await callApi(() => api.getMessages(roomId), setMessages);
+  }, [callApi, isAuthenticated]);
 
+  const loadPrivateMessages = useCallback(async (chatId) => {
+    if (!isAuthenticated) return;
+    await callApi(() => api.getPrivateMessages(chatId), setPrivateMessages);
+  }, [callApi, isAuthenticated]);
+
+  // Room handlers
   const handleSelectRoom = async (room) => {
     setCurrentRoom(room);
+    setCurrentPrivateChat(null);
     await loadMessages(room.roomId);
     setShowChat(true);
+    setShowMates(false);
   };
 
-  const handleJoinRoom = (roomId) => {
-    const room = rooms.find((r) => r.roomId === roomId);
-    if (room) {
-      handleSelectRoom(room);
+  // Private chat handlers
+  const handleSelectPrivateChat = async (chat) => {
+    setCurrentPrivateChat(chat);
+    setCurrentRoom(null);
+    await loadPrivateMessages(chat.chatId);
+    setShowMates(true);
+    setShowChat(false);
+  };
+
+  const handleCreatePrivateChat = async (data) => {
+    try {
+      const newChat = await api.createPrivateChat(data);
+      setPrivateChats(prev => [newChat, ...prev]);
+      setShowCreatePrivateChat(false);
+      // Optionally select the new chat
+      setCurrentPrivateChat(newChat);
+      setShowMates(true);
+    } catch (error) {
+      console.error('Failed to create private chat:', error);
+      setError('Failed to create private chat');
     }
   };
 
+  // Navigation handlers
   const handleEnterChat = () => {
     setShowChat(true);
     setShowMates(false);
+    setCurrentPrivateChat(null);
   };
 
   const handleViewMates = () => {
     setShowMates(true);
     setShowChat(false);
-    // You'll need to implement the mates view functionality
+    setCurrentRoom(null);
+    loadPrivateChats();
   };
 
+  const handleBackToLobby = () => {
+    setShowChat(false);
+    setShowMates(false);
+    setCurrentRoom(null);
+    setCurrentPrivateChat(null);
+    setMessages([]);
+    setPrivateMessages([]);
+  };
+
+  // Message sending handlers
   const handleSendMessage = async (content) => {
     if (sending || !user) return;
-
     setSending(true);
-    const messageData = { content };
-
+  
     try {
-      if (connected) {
-        sendWsMessage(currentRoom.roomId, messageData);
-      } else {
-        const newMessage = await api.sendMessage(
-          currentRoom.roomId,
-          messageData
-        );
-        handleNewMessage(newMessage);
+      if (currentRoom) {
+        // Room message (existing code)
+        const messageData = { content };
+        if (connected) {
+          sendWsMessage(currentRoom.roomId, messageData);
+        } else {
+          const newMessage = await api.sendMessage(currentRoom.roomId, messageData);
+          handleNewMessage(newMessage);
+        }
+      } else if (currentPrivateChat) {
+        // Private message
+        const messageData = { content };
+        console.log('Sending private message via WebSocket:', currentPrivateChat.chatId, messageData);
+        
+        if (privateConnected) {
+          sendPrivateWsMessage(currentPrivateChat.chatId, messageData);
+        } else {
+          console.log('WebSocket not connected, sending via API');
+          const newMessage = await api.sendPrivateMessage(currentPrivateChat.chatId, messageData);
+          handleNewPrivateMessage(newMessage);
+        }
       }
     } catch (err) {
       console.error("Failed to send message:", err);
+      setError("Failed to send message");
     } finally {
       setSending(false);
     }
   };
 
+  // Media upload handler
+  const handleMediaUpload = async (file, caption, messageType) => {
+    try {
+      setSending(true);
+      if (currentRoom) {
+        await api.sendMediaMessage(currentRoom.roomId, file, caption, messageType);
+      } else if (currentPrivateChat) {
+        // You'll need to implement private media messages in your backend
+        console.log('Private media messages coming soon');
+      }
+    } catch (error) {
+      console.error('Failed to send media:', error);
+      setError('Failed to send media');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Other handlers remain the same...
   const handleCreateRoom = async (roomData) => {
     await callApi(
       () => api.createRoom(roomData),
@@ -112,14 +202,9 @@ function App() {
         setShowCreateRoom(false);
         setCurrentRoom(newRoom);
         setShowChat(true);
+        setShowMates(false);
       }
     );
-  };
-
-  const handleBackToLobby = () => {
-    setShowChat(false);
-    setCurrentRoom(null);
-    setMessages([]);
   };
 
   const handleLogin = async (credentials) => {
@@ -127,6 +212,7 @@ function App() {
       await login(credentials);
       setShowAuthModal(false);
       await loadRooms();
+      await loadPrivateChats();
     } catch (err) {
       // Error handled by auth context
     }
@@ -137,16 +223,19 @@ function App() {
       await register(userData);
       setShowAuthModal(false);
       await loadRooms();
+      await loadPrivateChats();
     } catch (err) {
       // Error handled by auth context
     }
   };
 
+  // Effects
   useEffect(() => {
     if (isAuthenticated) {
       loadRooms();
+      loadPrivateChats();
     }
-  }, [loadRooms, isAuthenticated]);
+  }, [loadRooms, loadPrivateChats, isAuthenticated]);
 
   useEffect(() => {
     if (currentRoom && showChat && isAuthenticated) {
@@ -154,13 +243,20 @@ function App() {
     }
   }, [currentRoom, loadMessages, showChat, isAuthenticated]);
 
-  // Show loading state while checking authentication
+  useEffect(() => {
+    if (currentPrivateChat && showMates && isAuthenticated) {
+      loadPrivateMessages(currentPrivateChat.chatId);
+    }
+  }, [currentPrivateChat, loadPrivateMessages, showMates, isAuthenticated]);
+
+  // Render logic
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="min-h-screen cyber-bg">
         <LandingPage
           onAuth={() => setShowAuthModal(true)}
           onEnterChat={handleEnterChat}
+          onViewMates={handleViewMates}
         />
         <AuthModal
           isOpen={showAuthModal}
@@ -174,13 +270,13 @@ function App() {
     );
   }
 
-  // Show chat interface if authenticated and showChat is true
+  // Chat interface
   if (showChat) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-        <Header user={user} onLogout={logout} />
+      <div className="min-h-screen cyber-bg">
+        <Header user={user} onLogout={logout} connected={connected} />
 
-        <div className="container mx-auto p-4 max-w-7xl">
+        <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
           <div className="flex gap-6 h-[calc(100vh-140px)]">
             <RoomList
               rooms={rooms}
@@ -190,37 +286,25 @@ function App() {
               onBackToLobby={handleBackToLobby}
             />
 
-            <div className="flex-1 flex flex-col glass-effect rounded-xl">
+            <div className="flex-1 flex flex-col cyber-glass rounded-xl hologram">
               {currentRoom ? (
                 <>
-                  <div className="p-4 border-b border-white/20">
+                  <div className="p-4 sm:p-6 border-b border-neon-blue/20">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h2 className="text-xl font-bold text-white">
+                        <h2 className="text-xl font-cyber font-bold gradient-cyber">
                           {currentRoom.name}
                         </h2>
-                        <p className="text-white/60 text-sm">
-                          Room ID: {currentRoom.roomId}
+                        <p className="text-neon-blue/60 text-sm font-mono">
+                          ROOM_ID: {currentRoom.roomId}
                         </p>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              connected ? "bg-green-400" : "bg-red-400"
-                            }`}
-                          />
-                          <span className="text-sm text-white/60">
-                            {connected ? "Connected" : "Disconnected"}
-                          </span>
-                        </div>
-                        <button
-                          onClick={handleBackToLobby}
-                          className="text-white/60 hover:text-white text-sm"
-                        >
-                          ← Back to Lobby
-                        </button>
-                      </div>
+                      <button
+                        onClick={handleBackToLobby}
+                        className="text-neon-blue/60 hover:text-neon-blue text-sm font-cyber"
+                      >
+                        ← RETURN_TO_LOBBY
+                      </button>
                     </div>
                   </div>
 
@@ -230,19 +314,20 @@ function App() {
                   />
                   <MessageInput
                     onSendMessage={handleSendMessage}
+                    onMediaUpload={handleMediaUpload}
                     disabled={loading || sending || !user}
                     connected={connected}
                   />
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center text-white/60">
-                    <div className="text-6xl mb-4">💬</div>
-                    <h3 className="text-xl font-semibold mb-2">
-                      Select a room to start chatting
+                  <div className="text-center">
+                    <div className="text-6xl mb-4 animate-float">🌐</div>
+                    <h3 className="text-xl font-cyber font-bold gradient-cyber mb-2">
+                      SELECT_NEURAL_CHANNEL
                     </h3>
-                    <p className="text-white/60">
-                      Choose from the list or create a new room
+                    <p className="text-neon-blue/60 font-mono">
+                      Choose a room to begin data transmission
                     </p>
                   </div>
                 </div>
@@ -257,43 +342,114 @@ function App() {
           onCreateRoom={handleCreateRoom}
           loading={loading}
         />
-
-        {error && (
-          <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
-            Error: {error}
-          </div>
-        )}
       </div>
     );
   }
 
-  {showMates && (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-black to-blue-900">
-      <Header user={user} onLogout={logout} />
-      {/* Implement your mates view component here */}
-      <div className="container mx-auto p-4">
-        <h2 className="text-2xl font-bold text-cyan-300 mb-4">Mates View</h2>
-        <p className="text-cyan-200">One-on-one messaging interface coming soon...</p>
-      </div>
-    </div>
-  )}
+  // Private chats interface
+  if (showMates) {
+    return (
+      <div className="min-h-screen cyber-bg">
+        <Header user={user} onLogout={logout} connected={privateConnected} />
 
-  // Show landing page with welcome message for authenticated users
+        <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
+          <div className="flex gap-6 h-[calc(100vh-140px)]">
+            <div className="w-80 cyber-glass rounded-xl p-4 hologram">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-cyber font-bold gradient-cyber">PRIVATE_LINKS</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowCreatePrivateChat(true)}
+                    className="text-neon-pink hover:text-neon-pink/80 font-cyber text-sm"
+                    title="Create Private Chat"
+                  >
+                    + NEW_LINK
+                  </button>
+                  <button
+                    onClick={handleBackToLobby}
+                    className="text-neon-blue/60 hover:text-neon-blue text-sm font-cyber"
+                  >
+                    ← LOBBY
+                  </button>
+                </div>
+              </div>
+              
+              <PrivateChatList
+                chats={privateChats}
+                onChatSelect={handleSelectPrivateChat}
+                selectedChatId={currentPrivateChat?.chatId}
+                currentUser={user}
+              />
+            </div>
+
+            <div className="flex-1 flex flex-col cyber-glass rounded-xl hologram">
+              {currentPrivateChat ? (
+                <>
+                  <div className="p-4 sm:p-6 border-b border-neon-pink/20">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-cyber font-bold text-neon-pink">
+                          PRIVATE_CHANNEL
+                        </h2>
+                        <p className="text-neon-pink/60 text-sm font-mono">
+                          TARGET: {currentPrivateChat.participant1Username === user.username 
+                            ? currentPrivateChat.participant2Username 
+                            : currentPrivateChat.participant1Username}
+                        </p>
+                      </div>
+                      <div className="text-xs font-mono text-neon-pink/60">
+                        ENCRYPTED_P2P_LINK
+                      </div>
+                    </div>
+                  </div>
+
+                  <MessageList
+                    messages={privateMessages}
+                    currentUser={user?.username}
+                  />
+                  <MessageInput
+                    onSendMessage={handleSendMessage}
+                    onMediaUpload={handleMediaUpload}
+                    disabled={loading || sending || !user}
+                    connected={privateConnected}
+                    isPrivateChat={true}
+                  />
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-6xl mb-4 animate-pulse">🔐</div>
+                    <h3 className="text-xl font-cyber font-bold text-neon-pink mb-2">
+                      SELECT_PRIVATE_CHANNEL
+                    </h3>
+                    <p className="text-neon-pink/60 font-mono">
+                      Choose a contact for secure P2P communication
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <CreatePrivateChatModal
+          isOpen={showCreatePrivateChat}
+          onClose={() => setShowCreatePrivateChat(false)}
+          onCreateChat={handleCreatePrivateChat}
+          loading={loading}
+        />
+      </div>
+    );
+  }
+
+  // Landing page
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen cyber-bg">
       <Header user={user} onLogout={logout} />
       <LandingPage
         onAuth={() => setShowAuthModal(true)}
         onEnterChat={handleEnterChat}
         onViewMates={handleViewMates}
-      />
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        loading={loading}
-        error={error}
       />
     </div>
   );

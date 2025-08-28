@@ -58,6 +58,62 @@ export const api = {
         headers: getAuthHeaders(),
       }).then(handleResponse),
 
+      createPrivateChat: (data) =>
+        fetch(`${API_BASE}/private-chats`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify(data),
+        }).then(handleResponse),
+
+        getPrivateChats: () =>
+          fetch(`${API_BASE}/private-chats`, {
+            headers: getAuthHeaders(),
+          }).then(handleResponse),
+
+          sendPrivateMessage: (chatId, data) =>
+            fetch(`${API_BASE}/private-chats/${chatId}/messages`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+              },
+              body: JSON.stringify(data),
+            }).then(handleResponse),
+
+            getPrivateMessages: (chatId, page = 0, size = 50) =>
+              fetch(`${API_BASE}/private-chats/${chatId}/messages?page=${page}&size=${size}`, {
+                headers: getAuthHeaders(),
+              }).then(handleResponse),
+
+              // Media upload endpoints
+  uploadFile: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: formData,
+    }).then(handleResponse);
+  },
+
+
+  sendMediaMessage: async (roomId, file, content = '', messageType = 'IMAGE') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('content', content);
+    formData.append('messageType', messageType);
+    
+    return fetch(`${API_BASE}/rooms/${roomId}/media`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: formData,
+    }).then(handleResponse);
+  },
+
   // Room endpoints
   createRoom: (data) => 
     fetch(`${API_BASE}/rooms`, {

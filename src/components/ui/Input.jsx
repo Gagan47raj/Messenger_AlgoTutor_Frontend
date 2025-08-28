@@ -1,13 +1,14 @@
-import { useState } from 'react';
+// components/ui/Input.jsx
+import { useState, forwardRef } from 'react';
 
-export const Input = ({ 
+export const Input = forwardRef(({ 
   label, 
   error, 
   className = '', 
   icon,
   type = 'text',
   ...props 
-}) => {
+}, ref) => {
   const [focused, setFocused] = useState(false);
 
   return (
@@ -26,6 +27,7 @@ export const Input = ({
         )}
         
         <input
+          ref={ref}
           className={`cyber-input w-full ${icon ? 'pl-12' : 'pl-4'} pr-4 py-4 rounded-lg 
                     font-mono text-neon-blue placeholder-neon-blue/50 
                     focus:outline-none focus:ring-2 focus:ring-neon-blue/50
@@ -52,4 +54,7 @@ export const Input = ({
       )}
     </div>
   );
-};
+});
+
+// Add display name for debugging
+Input.displayName = 'Input';

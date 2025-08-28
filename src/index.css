@@ -44,23 +44,23 @@
   }
   
   .cyber-glass {
-    background: rgba(0, 212, 255, 0.05);
+    background: rgba(0, 212, 255, 0.12); /* was 0.05 */
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-    box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      0 0 20px rgba(0, 212, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.3); /* was 0.2 */
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.55),         /* stronger shadow */
+      inset 0 1px 0 rgba(255, 255, 255, 0.15), /* stronger inset highlight */
+      0 0 25px rgba(0, 212, 255, 0.2);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   .cyber-glass:hover {
-    background: rgba(0, 212, 255, 0.1);
-    border-color: rgba(0, 212, 255, 0.4);
-    box-shadow: 
-      0 12px 40px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 0 30px rgba(0, 212, 255, 0.2);
+    background: rgba(0, 212, 255, 0.18);       /* was 0.1 */
+    border-color: rgba(0, 212, 255, 0.5);      /* was 0.4 */
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      0 0 35px rgba(0, 212, 255, 0.3);
     transform: translateY(-2px);
   }
   
@@ -96,35 +96,34 @@
   }
   
   .cyber-button:hover {
-    box-shadow: 
-      0 0 20px rgba(0, 245, 255, 0.5),
-      0 0 40px rgba(191, 64, 191, 0.3),
-      inset 0 0 20px rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 0 25px rgba(0, 245, 255, 0.6),
+      0 0 45px rgba(191, 64, 191, 0.4),
+      inset 0 0 25px rgba(255, 255, 255, 0.15);
     transform: translateY(-3px) scale(1.02);
   }
   
   .cyber-input {
-    @apply cyber-glass font-mono;
-    background: rgba(0, 0, 0, 0.6);
-    border: 2px solid rgba(0, 245, 255, 0.3);
+    background: rgba(0, 0, 0, 0.8);             /* was 0.6 */
+    border: 2px solid rgba(0, 245, 255, 0.4);  /* was 0.3 */
     color: #00f5ff;
     transition: all 0.3s ease;
   }
   
   .cyber-input:focus {
     border-color: #00f5ff;
-    box-shadow: 
-      0 0 20px rgba(0, 245, 255, 0.3),
-      inset 0 0 20px rgba(0, 245, 255, 0.05);
+    box-shadow:
+      0 0 25px rgba(0, 245, 255, 0.45),         /* stronger glow */
+      inset 0 0 25px rgba(0, 245, 255, 0.1);   
     outline: none;
   }
   
   .cyber-input::placeholder {
-    color: rgba(0, 245, 255, 0.5);
+    color: rgba(0, 245, 255, 0.7);             /* more visible */
   }
   
   .message-bubble {
-    @apply cyber-glass p-4 max-w-xs animate-slide-up;
+    background: rgba(0, 245, 255, 0.15);
     word-wrap: break-word;
     position: relative;
   }
@@ -135,6 +134,16 @@
     width: 0;
     height: 0;
     border-style: solid;
+  }
+
+  .message-bubble.own {
+    background: linear-gradient(
+      135deg,
+      rgba(0, 245, 255, 0.3),
+      rgba(191, 64, 191, 0.3)
+    );
+    border-color: rgba(0, 245, 255, 0.45);
+    color: #00f5ff;
   }
   
   .message-bubble.own::before {
@@ -149,6 +158,17 @@
     left: -10px;
     border-width: 10px 10px 0 0;
     border-color: rgba(191, 64, 191, 0.2) transparent transparent transparent;
+  }
+
+
+  .message-bubble.other {
+    background: linear-gradient(
+      135deg,
+      rgba(191, 64, 191, 0.3),
+      rgba(255, 20, 147, 0.3)
+    );
+    border-color: rgba(191, 64, 191, 0.45);
+    color: #bf40bf;
   }
   
   .scan-line {
@@ -280,6 +300,11 @@
   }
 }
 
+.cyber-glass.rounded-xl.p-8 {
+  background: rgba(0, 212, 255, 0.15) !important; /* stronger glass */
+  border: 1px solid rgba(0, 212, 255, 0.35) !important;
+}
+
 /* High performance animations */
 .gpu-accelerated {
   transform: translateZ(0);
@@ -295,4 +320,53 @@
 ::-moz-selection {
   background: rgba(0, 245, 255, 0.3);
   color: #ffffff;
+}
+
+@keyframes scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes matrix {
+  0% { transform: translateY(-100vh) rotateX(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100vh) rotateX(360deg); opacity: 0; }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2s infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 245, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.6), 0 0 30px rgba(0, 245, 255, 0.4);
+  }
+}
+
+.animate-cyber-pulse {
+  animation: cyberPulse 1s infinite;
+}
+
+@keyframes cyberPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
