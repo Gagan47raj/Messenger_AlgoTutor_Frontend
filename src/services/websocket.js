@@ -1,12 +1,15 @@
 // services/websocket.js
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
-import { getAuthToken } from './api';
+import { getAuthToken, getWebSocketUrl } from './api';
 
 let stompClient = null;
 let isConnecting = false;
 let reconnectTimeout = null;
 let connectionCallbacks = { onConnect: null, onError: null };
+
+let connectionAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 export const connectWebSocket = (onConnect, onError) => {
   try {
@@ -33,14 +36,19 @@ export const connectWebSocket = (onConnect, onError) => {
 
     isConnecting = true;
     
+    const wsUrl = getWebSocketUrl();
+    console.log('🔌 Connecting to WebSocket at:', wsUrl);
+
     // Clear any existing reconnect timeout
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout);
       reconnectTimeout = null;
     }
 
-    const socket = new SockJS('http://localhost:8080/ws');
+    const socket = new SockJS(wsUrl);
     stompClient = Stomp.over(socket);
+
+    stompClient.reconnect_delay = 5000;
     
     // Disable debug logging
     stompClient.debug = null;
@@ -55,7 +63,7 @@ export const connectWebSocket = (onConnect, onError) => {
     };
     
     stompClient.connect(headers, () => {
-      console.log('WebSocket connected successfully');
+      console.log('WebSocket connected successfully',wsUrl);
       isConnecting = false;
       onConnect?.();
     }, (error) => {
@@ -86,15 +94,17 @@ export const connectWebSocket = (onConnect, onError) => {
 };
 
 const scheduleReconnect = () => {
-  if (reconnectTimeout) return;
+  if (reconnectTimeout || connectionAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+  
+  connectionAttempts++;
   
   reconnectTimeout = setTimeout(() => {
     reconnectTimeout = null;
     if (!isConnected() && !isConnecting) {
-      console.log('Attempting to reconnect WebSocket...');
+      console.log(`🔄 Reconnect attempt ${connectionAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
       connectWebSocket(connectionCallbacks.onConnect, connectionCallbacks.onError);
     }
-  }, 3000);
+  }, 3000 * connectionAttempts); // Exponential backoff
 };
 
 export const subscribeToRoom = (roomId, callback) => {

@@ -25,10 +25,20 @@ export const useWebSocket = (roomId, onMessage) => {
 
     const handleConnect = () => {
       if (isMounted) {
-        console.log('WebSocket connected successfully');
+        console.log('✅ WebSocket connected successfully');
         setConnected(true);
+        
+        // Subscribe immediately after connection
+        if (roomId) {
+          console.log('🔄 Auto-subscribing to room:', roomId);
+          subscriptionRef.current = subscribeToRoom(roomId, (message) => {
+            console.log('📨 Received real-time message:', message);
+            onMessageRef.current?.(message);
+          });
+        }
       }
     };
+
 
     const handleError = (error) => {
       if (isMounted) {
@@ -37,7 +47,11 @@ export const useWebSocket = (roomId, onMessage) => {
       }
     };
 
-    connectWebSocket(handleConnect, handleError);
+    if (isConnected()) {
+      handleConnect();
+    } else {
+      connectWebSocket(handleConnect, handleError);
+    }
 
     return () => {
       isMounted = false;
@@ -53,7 +67,7 @@ export const useWebSocket = (roomId, onMessage) => {
       
       setConnected(false);
     };
-  }, []);
+  }, [roomId]);
 
   // Subscribe to room when connected and roomId changes
   useEffect(() => {
@@ -80,6 +94,8 @@ export const useWebSocket = (roomId, onMessage) => {
 
   const sendMessage = useCallback((roomId, message) => {
     if (connected) {
+      console.log('📤 Sending message via WebSocket:', message);
+
       sendWsMessage(roomId, message);
     } else {
       console.error('Cannot send message: WebSocket not connected');

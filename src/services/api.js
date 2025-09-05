@@ -1,4 +1,19 @@
-const API_BASE = "http://localhost:8080/api";
+let backendPort;
+
+if (window.location.port === "3000") {
+  backendPort = 8081;
+} else if (window.location.port === "3001") {
+  backendPort = 8082;
+} else if (window.location.port === "3002") {
+  backendPort = 8083;
+} else {
+  backendPort = 8081; // default
+}
+
+const API_BASE = `http://localhost:${backendPort}/api`;
+
+console.log(`🔗 Frontend on port ${window.location.port} → Backend on port ${backendPort}`);
+console.log(`📡 API Base URL: ${API_BASE}`);
 
 // Store token in memory
 let authToken = null;
@@ -26,13 +41,33 @@ const getAuthHeaders = () => {
 
 const handleResponse = async (response) => {
   if (!response.ok) {
+    if (response.status === 0) {
+      throw new Error(`Cannot connect to backend at port ${backendPort}. Please check if server is running.`);
+    }
     const error = await response.text();
-    throw new Error(error || "Request failed");
+    throw new Error(error || `HTTP ${response.status}: Request failed`);
   }
   return response.json();
 };
 
 export const api = {
+
+  healthCheck: () =>
+    fetch(`${API_BASE.replace('/api', '')}/api/health`, {
+      headers: getAuthHeaders(),
+    }).then(handleResponse),
+
+    // Test Redis Pub/Sub endpoints
+  testPublishRoomMessage: (data) =>
+    fetch(`${API_BASE}/test/publish-room-message`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
   register: (data) =>
     fetch(`${API_BASE}/auth/register`, {
       method: "POST",
@@ -146,3 +181,7 @@ export const api = {
         body: JSON.stringify(data),
       }).then(handleResponse),
 };
+
+export const getBackendPort = () => backendPort;
+export const getApiBase = () => API_BASE;
+export const getWebSocketUrl = () => `http://localhost:${backendPort}/ws`;
